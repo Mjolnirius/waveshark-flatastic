@@ -23,7 +23,15 @@ import traceback
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
-from waveshare_epd import epd7in5bc
+
+from device_config import DISPLAY_DRIVER
+
+if DISPLAY_DRIVER == "epd7in5bc":
+    from waveshare_epd import epd7in5bc as epd_driver
+elif DISPLAY_DRIVER == "epd7in5b_V2":
+    from waveshare_epd import epd7in5b_V2 as epd_driver
+else:
+    raise ValueError(f"Unsupported display driver: {DISPLAY_DRIVER}")
 
 from secrets_api_etc import (  # Local API KEY and flatemate names are stored in secrets_api_etc.py
     wg,
@@ -73,9 +81,20 @@ def get_timeLeft(chores):
 try:
     logging.info("Initialising EPD...")
 
-    epd = epd7in5bc.EPD()
+    epd = epd_driver.EPD()
     width = epd.width
     height = epd.height
+
+    # Layout was originally designed for 640 px width
+    base_width = 640
+    scale_x = width / base_width
+
+    x_title = round(10 * scale_x)
+    x_person = round(380 * scale_x)
+    x_time = round(470 * scale_x)
+    row_right = width - 1
+
+    title_chars = round(string_length * scale_x)
 
     last_line = height - fontsize - 20
     epd.init()
@@ -141,23 +160,37 @@ try:
             till = chores[i]["timeLeftNext"]
             till = till / 86400
             if till < 0:
-                draw_red.rectangle((0, start, 640, fontsize + start + 5), fill=0)
-                draw_red.text((10, start), ch[:string_length], font=font, fill=255)
-                draw_red.text((380, start), person, font=font, fill=255)
-                draw_red.text((470, start), time_left, font=font, fill=255)
+                #draw_red.rectangle((0, start, row_right, fontsize + start + 5), fill=0)
+                #draw_red.text((, start), ch[:string_length], font=font, fill=255)
+                #draw_red.text((380, start), person, font=font, fill=255)
+                #draw_red.text((470, start), time_left, font=font, fill=255)
+                draw_red.rectangle((0, start, row_right, fontsize + start + 5), fill=0)
+                draw_red.text((x_title, start), ch[:title_chars], font=font, fill=255)
+                draw_red.text((x_person, start), person, font=font, fill=255)
+                draw_red.text((x_time, start), time_left, font=font, fill=255)
             elif till < 1:
-                draw_black.rectangle((0, start, 640, fontsize + start + 5), fill=0)
-                draw_black.text((10, start), ch[:string_length], font=font, fill=255)
-                draw_black.text((380, start), person, font=font, fill=255)
-                draw_black.text((470, start), time_left, font=font, fill=255)
+                #draw_black.rectangle((0, start, 640, fontsize + start + 5), fill=0)
+                #draw_black.text((10, start), ch[:string_length], font=font, fill=255)
+                #draw_black.text((380, start), person, font=font, fill=255)
+                #draw_black.text((470, start), time_left, font=font, fill=255)
+                draw_black.rectangle((0, start, row_right, fontsize + start + 5), fill=0)
+                draw_black.text((x_title, start), ch[:title_chars], font=font, fill=255)
+                draw_black.text((x_person, start), person, font=font, fill=255)
+                draw_black.text((x_time, start), time_left, font=font, fill=255)
             else:
-                draw_black.text((10, start), ch[:string_length], font=font, fill=0)
-                draw_black.text((380, start), person, font=font, fill=0)
-                draw_black.text((470, start), time_left, font=font, fill=0)
+                #draw_black.text((10, start), ch[:string_length], font=font, fill=0)
+                #draw_black.text((380, start), person, font=font, fill=0)
+                #draw_black.text((470, start), time_left, font=font, fill=0)
+                draw_black.text((x_title, start), ch[:title_chars], font=font, fill=0)
+                draw_black.text((x_person, start), person, font=font, fill=0)
+                draw_black.text((x_time, start), time_left, font=font, fill=0)
         else:
-            draw_black.text((10, start), ch[:string_length], font=font, fill=0)
-            draw_black.text((380, start), person, font=font, fill=0)
-            draw_black.text((470, start), time_left, font=font, fill=0)
+            # draw_black.text((10, start), ch[:string_length], font=font, fill=0)
+            # draw_black.text((380, start), person, font=font, fill=0)
+            # draw_black.text((470, start), time_left, font=font, fill=0)
+            draw_black.text((x_title, start), ch[:title_chars], font=font, fill=0)
+            draw_black.text((x_person, start), person, font=font, fill=0)
+            draw_black.text((x_time, start), time_left, font=font, fill=0)
 
     logging.info("Aktualisiert...")
     
@@ -235,5 +268,5 @@ except IOError as e:
 
 except KeyboardInterrupt:
     logging.info("ctrl + c:")
-    epd7in5bc.epdconfig.module_exit()
+    epd_driver.epdconfig.module_exit()
     exit()
