@@ -1,3 +1,4 @@
+
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 import os
@@ -39,6 +40,7 @@ string_length = 30
 
 url_chores = "https://api.flatastic-app.com/index.php/api/chores"
 url_wg = "https://api.flatastic-app.com/index.php/api/wg"
+url_points = "https://api.flatastic-app.com/index.php/api/chores/statistics" #new
 
 headers = {"x-api-key": x_api_key}
 
@@ -91,10 +93,10 @@ try:
     logging.info("Image loaded, Loading Font...")
 
     font = ImageFont.truetype(
-        "/home/pi/.fonts/Cousine Bold Nerd Font Complete.ttf", fontsize
+        "/home/job/.fonts/CousineNerdFont-Bold.ttf", fontsize
     )
     fontbig = ImageFont.truetype(
-        "/home/pi/.fonts/Cousine Bold Italic Nerd Font Complete.ttf", fontsize
+        "/home/job/.fonts/CousineNerdFont-BoldItalic.ttf", fontsize
     )
     # font = ImageFont.truetype(os.path.join(picdir, "Font.ttc"), fontsize)
     # fontbig = ImageFont.truetype(os.path.join(picdir, "Font.ttc"), fontsize, index=1)
@@ -109,6 +111,7 @@ try:
             "https://api.flatastic-app.com/index.php/api/wg", headers=headers
         ).text
     )
+    points_data = json.loads(requests.get(url_points, headers=headers).text) #new
 
     chores = sorted(json.loads(choresdata), key=get_timeLeft)
 
@@ -157,27 +160,68 @@ try:
             draw_black.text((470, start), time_left, font=font, fill=0)
 
     logging.info("Aktualisiert...")
+    
+    # Find the minimum chore points of all flatmates
+    min_chore_points = 100000
+    for i in range(len(wg)):
+        name = int(wg_data["flatmates"][i]["id"])
+        #points = int(wg_data["flatmates"][i]["chorePoints"]) - int(wg_offset[name])
+        points = int(points_data.get("chore", {}).get(str(name), 0)) #new
+        if points < min_chore_points:
+            min_chore_points = points
 
+
+    # working range feature -params
+    enable_working_range = True         # toggle working range feature
+    working_range_upper_bound = 15
+
+    # Find the ACTUAL maximum chore points of all flatmates
+    max_chore_points = -100000
+    for i in range(len(wg)):
+        name = int(wg_data["flatmates"][i]["id"])
+        #points_val = int(wg_data["flatmates"][i]["chorePoints"]) - wg_offset[name] - min_chore_points
+        points_val = int(points_data.get("chore", {}).get(str(name), 0)) - min_chore_points #new
+        if points_val > max_chore_points:
+            max_chore_points = points_val
+
+    if enable_working_range:
+        working_range_to_max = max_chore_points - working_range_upper_bound
+    else:
+        working_range_to_max = 0
+
+
+    # cycle over all flatmates and print their chore points
     for i in range(len(wg)):
 
         name = int(wg_data["flatmates"][i]["id"])
 
         # Somehow the chores data doesn't get reset on the backend. Thus I do it here manualy.
-        points = str(int(wg_data["flatmates"][i]["chorePoints"]) - wg_offset[name])
+        #points_val = int(wg_data["flatmates"][i]["chorePoints"]) - wg_offset[name] - min_chore_points - working_range_to_max
+        points_val = int(points_data.get("chore", {}).get(str(name), 0)) - min_chore_points - working_range_to_max #new
+        points = str(points_val)
 
-        # points = wg_data["flatmates"][i]["chorePoints"]
-        draw_black.text(
-            (10 + i * width / 4, height - 2 * fontsize - 27),
-            wg[name] + ": " + points,
-            font=fontbig,
-            fill=0,
-        )
+        if points_val < 0 and enable_working_range:
+            # points = wg_data["flatmates"][i]["chorePoints"]
+            draw_red.text(
+                (10 + i * width / 4, height - 2 * fontsize - 27),
+                wg[name] + ": " + points,
+                font=fontbig,
+                fill=0,
+            )
+        else:
+            # points = wg_data["flatmates"][i]["chorePoints"]
+            draw_black.text(
+                (10 + i * width / 4, height - 2 * fontsize - 27),
+                wg[name] + ": " + points,
+                font=fontbig,
+                fill=0,
+            )
 
     now = datetime.datetime.now().strftime("%H:%M %d.%m.%y")
     draw_black.text(
         (10, height - fontsize - 27), "Aktualisiert: " + now, font=fontbig, fill=0
     )
-    draw_red.text(
+    draw_black.text(
         (width / 4 * 3, height - fontsize - 27), wg_name, font=fontbig, fill=0
     )
 
